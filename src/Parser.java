@@ -497,17 +497,25 @@ public class Parser {
 
   //  FATOR ➜ tipo | ID | AP expr FP
   private boolean fator(Node pai) {
-    if (tipo(pai)) 
-      return true;
-    if (ID(pai))   
-      return true;
-    if (matchL("(")) {
-      Node noE = pai.addNode("expr");
-      if (!expr(noE) || !matchL(")")) { 
-        return false; }
-      return true;
-    }
-    return false;
+    if (matchT("LITTOTUM", pai)) 
+      return true;   
+      if (matchT("LITFRACTUM", pai)) 
+        return true; 
+      if (matchT("LITFILUM", pai)) 
+        return true; 
+      if (matchT("LITCHAR", pai)) 
+        return true;
+      if (matchT("LITLOGICUM", pai)) 
+        return true;
+      if (ID(pai)) 
+        return true;
+      if (matchL("(")) {
+          Node noE = pai.addNode("expr");
+          if (!expr(noE) || !matchL(")")) 
+            return false;
+          return true;
+      }
+      return false;
   }
 
 
@@ -528,7 +536,7 @@ public class Parser {
         (token.lexema.equals("&&") || token.lexema.equals("||"))) {
       matchL(token.lexema, pai);
       Node nodecondlogica = new Node("cond_logica");
-      if (!condicao_logica(nodecondlogica)) { 
+      if (!condicao_relacional(nodecondlogica)) { 
         return false; 
       }
       pai.addNode(nodecondlogica);
@@ -564,18 +572,27 @@ public class Parser {
 
 
   private boolean tipo(Node pai) {
-    return matchT("TOTUM", pai)   || matchT("FRACTUM", pai) ||
-           matchT("LOGICUM", pai) || matchT("FILUM", pai)   ||
-           matchT("CHAR", pai);
+    if (token != null && (
+      token.lexema.equals("totum") || 
+      token.lexema.equals("fractum") ||
+      token.lexema.equals("logicum") ||
+      token.lexema.equals("filum") ||
+      token.lexema.equals("char")
+    )) {
+    pai.addNode("tipo(" + token.lexema + ")");
+    token = getNextToken();
+    return true;
+    }
+    return false;
   }
 
   private boolean ID(Node pai){ 
     return matchT("id", pai);      
   }
   private boolean logico(Node pai){ 
-    return matchT("LOGICUM", pai); 
+    return matchT("LITLOGICUM", pai); 
   }
   private boolean texto(Node pai){ 
-    return matchT("FILUM", pai);
+    return matchT("LITFILUM", pai);
   }
 }

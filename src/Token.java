@@ -10,6 +10,28 @@ public class Token {
   private static List<Token> tokens = new ArrayList<>();
 
   public Token(String tipo, String lexema) {
+    // Validação de identificadores inválidos
+    if (tipo.equals("id")) {
+      if (lexema.length() > 0 && Character.isDigit(lexema.charAt(0))) {
+        throw new RuntimeException(
+          "[Erro Léxico] Identificador inválido: '" + lexema +
+          "' — identificadores não podem começar com dígito."
+        );
+      }
+      if (lexema.contains(" ")) {
+        throw new RuntimeException(
+          "[Erro Léxico] Identificador inválido: '" + lexema +
+          "' — identificadores não podem conter espaço."
+        );
+      }
+      if (!lexema.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+        throw new RuntimeException(
+          "[Erro Léxico] Identificador inválido: '" + lexema +
+          "' — formato não permitido."
+        );
+      }
+    }
+
     this.lexema = lexema;
     this.tipo = tipo;
     if (!tipo.equals("EOF")) {
