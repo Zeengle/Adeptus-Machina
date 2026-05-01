@@ -57,7 +57,7 @@ A linguagem combina terminologia clássica com paradigmas modernos de programaç
 
 Os seguintes tokens definem os elementos primitivos da linguagem:
 
-```pascal
+```txt
 totum    ➜ [0-9]+
 fractum  ➜ [0-9]+ '.' [0-9]+
 char     ➜ '[a-zA-Z0-9 \t\n.?_!]'
@@ -67,11 +67,11 @@ logicum  ➜ ('VERUM' | 'FALSUM')
 
 ## Símbolos
 
-```pascal
-AP            ➜ (   // Abre parênteses
-FP            ➜ )   // Fecha parênteses
-AC            ➜ {   // Abre bloco
-FC            ➜ }   // Fecha bloco
+```txt
+AP            ➜ (   // Abre Parênteses
+FP            ➜ )   // Fecha Parênteses
+AC            ➜ {   // Abre Chaves
+FC            ➜ }   // Fecha Chaves
 op_igualdade  ➜ =
 op_relacional ➜ '<' | '>' | '<=' | '>=' | '!=' | '=='
 op_inc        ➜ '+=' | '-=' | '*=' | '/='
@@ -87,7 +87,7 @@ comentario    ➜ AComentario .* FComentario
 
 A gramática define a estrutura de programas válidos em Adeptus-Machina.
 
-```pascal
+```txt
 prog ➜ bloco
 
 tipo ➜ (totum | fractum | filum | char | logicum)
@@ -132,7 +132,7 @@ try ➜ 'experiri' AC bloco FC
 
 Abaixo está um exemplo simples demonstrando a sintaxe da linguagem:
 
-```pascal
+```java
 
 totum x = 10;
 
