@@ -5,11 +5,7 @@ public class Main {
  
  
     String codigoFonte =
-        "<<\"Este é um comentário\">>" +
-        "logicum contador;" +
-        "per (contador = 1; contador <= 10; contador++){ " +
-        "scribere(contador);" +
-        "}";
+        "";
  
  
     try {
