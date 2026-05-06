@@ -28,6 +28,8 @@ public class IdeMachina extends JFrame {
     private final Color ERROR_COLOR = new Color(224, 108, 117);
     private final Color SUCCESS_COLOR = new Color(152, 195, 121);
     private final Color PURPLE_COLOR = new Color(198, 120, 221);
+    private final Color VAR_COLOR = new Color(0, 211, 255);
+    private final Color BOOL_COLOR = new Color(255, 255, 0);
     private final Color PANEL_BG = new Color(24, 26, 31);
 
     public IdeMachina() {
@@ -164,9 +166,11 @@ public class IdeMachina extends JFrame {
         doc.setCharacterAttributes(0, texto.length(),
                 StyleContext.getDefaultStyleContext().getEmptySet(), true);
 
-        pintar(doc, "\\b(per|scribere|logicum|quatum|si|ita|reverti|falsum|verum|quantum)\\b", PURPLE_COLOR);
+        pintar(doc, "\\b(per|scribere|quatum|si|ita|reverti|quantum)\\b", PURPLE_COLOR);
         pintar(doc, "\".*?\"", SUCCESS_COLOR);
         pintar(doc, "\"", ACCENT_COLOR);
+        pintar(doc, "logicum|totum|fractum|filum|char", VAR_COLOR);
+        pintar(doc, "FALSUM|VERUM", BOOL_COLOR);
         pintar(doc, ";", ERROR_COLOR);
         pintar(doc, "<<.*?>>", new Color(92, 99, 112));
     }
@@ -188,33 +192,69 @@ public class IdeMachina extends JFrame {
         String codigo = editorCodigo.getText();
         consoleOutput.setText("");
         analysisOutput.setText("");
-
+    
         statusBar.setText("⏳ Processando...");
         statusBar.setForeground(ACCENT_COLOR);
-
+    
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PrintStream old = System.out;
         System.setOut(new PrintStream(baos));
-
+    
+        boolean sintaticaOk = false;
+        boolean semanticaOk = false;
+    
         try {
+            // ── FASE LÉXICA ────────────────────────────────────────
             append(analysisOutput, "--- FASE LÉXICA ---\n", PURPLE_COLOR);
-            List<Token> tokens = Scanner.lex(codigo);
-
-            for (Token t : tokens) {
+            List<Token> tokensParser = Scanner.lex(codigo);
+    
+            for (Token t : tokensParser) {
                 append(analysisOutput, t.toString() + "\n", TEXT_COLOR);
             }
-
+    
+            // ── FASE SINTÁTICA ─────────────────────────────────────
             append(analysisOutput, "\n--- FASE SINTÁTICA ---\n", PURPLE_COLOR);
-            Parser parser = new Parser(tokens);
+            Parser parser = new Parser(tokensParser);
             parser.main();
-
+    
             System.out.flush();
             append(analysisOutput, baos.toString(), TEXT_COLOR);
-
-            append(consoleOutput, "✔ Compilado com sucesso\n", SUCCESS_COLOR);
-            statusBar.setText("✅ Sucesso");
-            statusBar.setForeground(SUCCESS_COLOR);
-
+            sintaticaOk = true;
+    
+            // ── FASE SEMÂNTICA ─────────────────────────────────────
+            append(analysisOutput, "\n--- FASE SEMÂNTICA ---\n", PURPLE_COLOR);
+    
+            List<Token> tokensSem = Scanner.lex(codigo); // nova lista (o parser consumiu a anterior)
+            Token.limparTokens();
+    
+            SemanticAnalyzer sem = new SemanticAnalyzer(tokensSem);
+            semanticaOk = sem.analisar();
+    
+            // Avisos em amarelo
+            for (String av : sem.getAvisos()) {
+                append(analysisOutput, av + "\n", new Color(229, 192, 123));
+            }
+    
+            // Erros semânticos em vermelho
+            for (String er : sem.getErros()) {
+                append(analysisOutput, er + "\n", ERROR_COLOR);
+            }
+    
+            if (sem.getErros().isEmpty() && sem.getAvisos().isEmpty()) {
+                append(analysisOutput, "Semanticamente correta.\n", SUCCESS_COLOR);
+            }
+    
+            // Status final
+            if (semanticaOk) {
+                append(consoleOutput, "✔ Compilado com sucesso\n", SUCCESS_COLOR);
+                statusBar.setText("✅ Sucesso");
+                statusBar.setForeground(SUCCESS_COLOR);
+            } else {
+                append(consoleOutput, "✘ Erros semânticos encontrados.\n", ERROR_COLOR);
+                statusBar.setText("❌ Erro semântico");
+                statusBar.setForeground(ERROR_COLOR);
+            }
+    
         } catch (Exception ex) {
             append(consoleOutput, "ERRO: " + ex.getMessage(), ERROR_COLOR);
             statusBar.setText("❌ Erro");
@@ -222,22 +262,25 @@ public class IdeMachina extends JFrame {
         } finally {
             System.setOut(old);
         }
-
-        List<Token> tokens = Scanner.lex(codigo);
-
-        Translator translator = new Translator(tokens);
-        String pascal = translator.traduzir();
-
-        translator.salvar(pascal, "output.pas");
-
-        append(consoleOutput, "\n--- Código Pascal ---\n", ACCENT_COLOR);
-        append(consoleOutput, pascal, TEXT_COLOR);
-
-        PascalRunner runner = new PascalRunner();
-        String resultado = runner.executar("output.pas");
-
-        append(consoleOutput, "\n--- Execução Pascal ---\n", ACCENT_COLOR);
-        append(consoleOutput, resultado, TEXT_COLOR);
+    
+        // ── TRADUÇÃO E EXECUÇÃO PASCAL (só se não houver erros) ───
+        if (sintaticaOk && semanticaOk) {
+            List<Token> tokensTrad = Scanner.lex(codigo);
+            Token.limparTokens();
+    
+            Translator translator = new Translator(tokensTrad);
+            String pascal = translator.traduzir();
+            translator.salvar(pascal, "output.pas");
+    
+            append(consoleOutput, "\n--- Código Pascal ---\n", ACCENT_COLOR);
+            append(consoleOutput, pascal, TEXT_COLOR);
+    
+            PascalRunner runner = new PascalRunner();
+            String resultado = runner.executar("output.pas");
+    
+            append(consoleOutput, "\n--- Execução Pascal ---\n", ACCENT_COLOR);
+            append(consoleOutput, resultado, TEXT_COLOR);
+        }
     }
 
     private void append(JTextPane pane, String msg, Color color) {
