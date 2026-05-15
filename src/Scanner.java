@@ -1,6 +1,10 @@
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Analisador Léxico (Scanner) do Adeptus Machina.
+ * Implementado manualmente, SEM uso de bibliotecas de expressões regulares.
+ */
 public class Scanner {
 
     private static final String[] PALAVRAS_RESERVADAS = {
@@ -80,12 +84,8 @@ public class Scanner {
                     sb.append('.');
                     i++;
                     while (i < len && Character.isDigit(input.charAt(i))) { sb.append(input.charAt(i)); i++; }
-                    if (i < len && (Character.isLetter(input.charAt(i)) || input.charAt(i) == '_'))
-                        throw new RuntimeException("[Erro Léxico] Identificador inválido: '" + sb + input.charAt(i) + "' — identificadores não podem começar com dígito.");
                     tokens.add(new Token("LITFRACTUM", sb.toString()));
                 } else {
-                    if (i < len && (Character.isLetter(input.charAt(i)) || input.charAt(i) == '_'))
-                        throw new RuntimeException("[Erro Léxico] Identificador inválido: '" + sb + input.charAt(i) + "' — identificadores não podem começar com dígito.");
                     tokens.add(new Token("LITTOTUM", sb.toString()));
                 }
                 continue;

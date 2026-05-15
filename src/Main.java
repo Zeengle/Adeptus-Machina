@@ -3,6 +3,7 @@ import java.util.List;
 public class Main {
     public static void main(String[] args) {
 
+        // Código de teste cobrindo: tipos, if/else, while, do-while, for, input, print, semântica
         String codigoFonte =
             "<< Programa de teste do compilador Adeptus Machina >>\n" +
             "totum x = 10;\n" +

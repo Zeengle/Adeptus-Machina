@@ -7,7 +7,6 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,7 +18,11 @@ public class IdeMachina extends JFrame {
     private JTextPane consoleOutput;
     private JTextPane analysisOutput;
     private JLabel statusBar;
+    private JTextField inputField;
+    private JButton btnEnviar;
+    private PascalRunner runner;
 
+    // Paleta One Dark Pro
     private final Color BG_COLOR = new Color(40, 44, 52);
     private final Color EDITOR_BG = new Color(33, 37, 43);
     private final Color GUTTER_BG = new Color(40, 44, 52);
@@ -33,7 +36,7 @@ public class IdeMachina extends JFrame {
     private final Color PANEL_BG = new Color(24, 26, 31);
 
     public IdeMachina() {
-        setTitle("Adeptus-Machina IDE - CC510");
+        setTitle("Adeptus-Machina IDE - CC510 2.0");
         setSize(1150, 750);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -70,6 +73,7 @@ public class IdeMachina extends JFrame {
 
     private JSplitPane criarAreaCentral() {
 
+        // ================= EDITOR =================
         editorCodigo = new JTextPane();
         editorCodigo.setBackground(EDITOR_BG);
         editorCodigo.setForeground(TEXT_COLOR);
@@ -89,6 +93,7 @@ public class IdeMachina extends JFrame {
 
         aplicarCoresSintaxe();
 
+        // ================= GUTTER =================
         gutterLinhas = new JTextArea("1");
         gutterLinhas.setBackground(GUTTER_BG);
         gutterLinhas.setForeground(new Color(92, 99, 112));
@@ -117,7 +122,7 @@ public class IdeMachina extends JFrame {
         JScrollPane scrollEditor = new JScrollPane(painelEditor);
         scrollEditor.setBorder(null);
 
-        // -- Terminal --
+        // ================= TERMINAL =================
         consoleOutput = new JTextPane();
         consoleOutput.setBackground(PANEL_BG);
         consoleOutput.setForeground(TEXT_COLOR);
@@ -129,6 +134,48 @@ public class IdeMachina extends JFrame {
         scrollConsole.setBorder(null);
         scrollConsole.getViewport().setBackground(PANEL_BG);
 
+        // ================= INPUT INTERATIVO =================
+        inputField = new JTextField();
+        inputField.setBackground(new Color(33, 37, 43));
+        inputField.setForeground(TEXT_COLOR);
+        inputField.setFont(new Font("Consolas", Font.PLAIN, 14));
+        inputField.setCaretColor(TEXT_COLOR);
+        inputField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0, ACCENT_COLOR),
+            new EmptyBorder(6, 10, 6, 10)
+        ));
+        inputField.setEnabled(false);
+
+        btnEnviar = new JButton("Enviar");
+        btnEnviar.setBackground(ACCENT_COLOR);
+        btnEnviar.setForeground(Color.BLACK);
+        btnEnviar.setFocusPainted(false);
+        btnEnviar.setBorder(new EmptyBorder(6, 12, 6, 12));
+        btnEnviar.setEnabled(false);
+
+        Runnable enviarEntrada = () -> {
+            String texto = inputField.getText();
+            if (runner != null && runner.emExecucao()) {
+                append(consoleOutput, texto + "\n", SUCCESS_COLOR);
+                runner.enviarEntrada(texto);
+                inputField.setText("");
+            }
+        };
+
+        btnEnviar.addActionListener(e -> enviarEntrada.run());
+        inputField.addActionListener(e -> enviarEntrada.run());
+
+        JPanel painelInput = new JPanel(new BorderLayout());
+        painelInput.setBackground(PANEL_BG);
+        painelInput.add(inputField, BorderLayout.CENTER);
+        painelInput.add(btnEnviar, BorderLayout.EAST);
+
+        JPanel painelConsole = new JPanel(new BorderLayout());
+        painelConsole.setBackground(PANEL_BG);
+        painelConsole.add(scrollConsole, BorderLayout.CENTER);
+        painelConsole.add(painelInput, BorderLayout.SOUTH);
+
+        // ================= ANALYSIS =================
         analysisOutput = new JTextPane();
         analysisOutput.setBackground(PANEL_BG);
         analysisOutput.setForeground(PURPLE_COLOR);
@@ -140,11 +187,13 @@ public class IdeMachina extends JFrame {
         scrollAnalysis.setBorder(null);
         scrollAnalysis.getViewport().setBackground(PANEL_BG);
 
+        // ================= TABS =================
         JTabbedPane painelAbas = new JTabbedPane();
         painelAbas.setBorder(BorderFactory.createMatteBorder(0,1,0,0, ACCENT_COLOR));
-        painelAbas.addTab("Terminal", scrollConsole);
-        painelAbas.addTab("Análise Interna", scrollAnalysis);
+        painelAbas.addTab("💻 Terminal", painelConsole);
+        painelAbas.addTab("🔍 Análise Interna", scrollAnalysis);
 
+        // ================= SPLIT =================
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollEditor, painelAbas);
         split.setDividerLocation(600);
         split.setDividerSize(5);
@@ -153,6 +202,7 @@ public class IdeMachina extends JFrame {
         return split;
     }
 
+    // ================= SYNTAX =================
     private void aplicarCoresSintaxe() {
         StyledDocument doc = editorCodigo.getStyledDocument();
         String texto = editorCodigo.getText();
@@ -181,206 +231,102 @@ public class IdeMachina extends JFrame {
         } catch (Exception ignored) {}
     }
 
-    // -- Compilador --
+    // ================= COMPILADOR =================
     private void executarCompilador() {
         String codigo = editorCodigo.getText();
         consoleOutput.setText("");
         analysisOutput.setText("");
-    
         statusBar.setText("Processando...");
         statusBar.setForeground(ACCENT_COLOR);
-    
+
+        if (runner != null) runner.encerrar();
+        inputField.setEnabled(false);
+        btnEnviar.setEnabled(false);
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        PrintStream old = System.out;
+        PrintStream oldOut = System.out;
         System.setOut(new PrintStream(baos));
-    
-        boolean lexicaOk   = false;
+
         boolean sintaticaOk = false;
         boolean semanticaOk = false;
 
-        List<Token> tokensParser = null;
-
-        // -- Léxico --
-        append(analysisOutput, "--- FASE LÉXICA ---\n", PURPLE_COLOR);
         try {
-            tokensParser = Scanner.lex(codigo);
-            for (Token t : tokensParser) {
-                append(analysisOutput, t.toString() + "\n", TEXT_COLOR);
-            }
-            append(analysisOutput, "Análise léxica concluída sem erros.\n", SUCCESS_COLOR);
-            lexicaOk = true;
-        } catch (Exception ex) {
-            append(analysisOutput, ex.getMessage() + "\n", ERROR_COLOR);
-            append(consoleOutput, "Erro léxico: " + ex.getMessage() + "\n", ERROR_COLOR);
-            statusBar.setText("Erro léxico");
-            statusBar.setForeground(ERROR_COLOR);
-            System.setOut(old);
-            return;
-        }
+            append(analysisOutput, "--- FASE LEXICA ---\n", PURPLE_COLOR);
+            List<Token> tokensParser = Scanner.lex(codigo);
+            for (Token t : tokensParser) append(analysisOutput, t.toString() + "\n", TEXT_COLOR);
 
-        //-- Sintático --
-        append(analysisOutput, "\n--- FASE SINTÁTICA ---\n", PURPLE_COLOR);
-        try {
+            append(analysisOutput, "\n--- FASE SINTATICA ---\n", PURPLE_COLOR);
             Parser parser = new Parser(tokensParser);
             parser.main();
             System.out.flush();
             append(analysisOutput, baos.toString(), TEXT_COLOR);
             sintaticaOk = true;
-        } catch (Exception ex) {
-            System.out.flush();
-            append(analysisOutput, baos.toString(), TEXT_COLOR);
-            append(analysisOutput, ex.getMessage() + "\n", ERROR_COLOR);
-            append(consoleOutput, "Erro sintático: " + ex.getMessage() + "\n", ERROR_COLOR);
-            statusBar.setText("Erro sintático");
-            statusBar.setForeground(ERROR_COLOR);
-            System.setOut(old);
-            return;
-        } finally {
-            System.setOut(old);
-        }
 
-        // -- Semântico --
-        append(analysisOutput, "\n--- FASE SEMÂNTICA ---\n", PURPLE_COLOR);
-        try {
+            append(analysisOutput, "\n--- FASE SEMANTICA ---\n", PURPLE_COLOR);
             List<Token> tokensSem = Scanner.lex(codigo);
             Token.limparTokens();
-
             SemanticAnalyzer sem = new SemanticAnalyzer(tokensSem);
             semanticaOk = sem.analisar();
 
-            for (String av : sem.getAvisos()) {
+            for (String av : sem.getAvisos())
                 append(analysisOutput, av + "\n", new Color(229, 192, 123));
-            }
-
-            for (String er : sem.getErros()) {
+            for (String er : sem.getErros())
                 append(analysisOutput, er + "\n", ERROR_COLOR);
-            }
 
-            if (sem.getErros().isEmpty() && sem.getAvisos().isEmpty()) {
+            if (sem.getErros().isEmpty() && sem.getAvisos().isEmpty())
                 append(analysisOutput, "Semanticamente correta.\n", SUCCESS_COLOR);
-            }
 
             if (semanticaOk) {
                 append(consoleOutput, "Compilado com sucesso\n", SUCCESS_COLOR);
                 statusBar.setText("Sucesso");
                 statusBar.setForeground(SUCCESS_COLOR);
             } else {
-                append(consoleOutput, "Erros semânticos encontrados.\n", ERROR_COLOR);
-                statusBar.setText("Erro semântico");
+                append(consoleOutput, "Erros semanticos encontrados.\n", ERROR_COLOR);
+                statusBar.setText("Erro semantico");
                 statusBar.setForeground(ERROR_COLOR);
             }
+
         } catch (Exception ex) {
-            append(analysisOutput, ex.getMessage() + "\n", ERROR_COLOR);
-            append(consoleOutput, "Erro semântico: " + ex.getMessage() + "\n", ERROR_COLOR);
-            statusBar.setText("Erro semântico");
+            append(consoleOutput, "ERRO: " + ex.getMessage(), ERROR_COLOR);
+            statusBar.setText("Erro");
             statusBar.setForeground(ERROR_COLOR);
+        } finally {
+            System.setOut(oldOut);
         }
-    
-        // -- Tradução --
-        if (lexicaOk && sintaticaOk && semanticaOk) {
+
+        if (sintaticaOk && semanticaOk) {
             List<Token> tokensTrad = Scanner.lex(codigo);
             Token.limparTokens();
-    
             Translator translator = new Translator(tokensTrad);
             String pascal = translator.traduzir();
             translator.salvar(pascal, "output.pas");
-    
-            append(consoleOutput, "\n--- Código Pascal ---\n", ACCENT_COLOR);
+
+            append(consoleOutput, "\n--- Codigo Pascal ---\n", ACCENT_COLOR);
             append(consoleOutput, pascal, TEXT_COLOR);
 
-            String stdinData = coletarInputs(codigo);
-            if (stdinData == null) {
-                append(consoleOutput, "\n[Execução cancelada pelo usuário]\n", ERROR_COLOR);
+            runner = new PascalRunner();
+            String erroCompile = runner.compilar("output.pas");
+            if (erroCompile != null) {
+                append(consoleOutput, "\n[Erro FPC]\n" + erroCompile, ERROR_COLOR);
                 return;
             }
 
-            String resultado = PascalRunner.executar("output.pas", stdinData);
+            append(consoleOutput, "\n--- Execucao ---\n", ACCENT_COLOR);
+            inputField.setEnabled(true);
+            btnEnviar.setEnabled(true);
+            inputField.requestFocus();
 
-            append(consoleOutput, "\n--- Execução Pascal ---\n", ACCENT_COLOR);
-            append(consoleOutput, resultado, TEXT_COLOR);
+            runner.iniciarExecucao("output.pas", linha -> {
+                SwingUtilities.invokeLater(() -> {
+                    append(consoleOutput, linha, TEXT_COLOR);
+                    if (linha.contains("[Programa encerrado]")) {
+                        inputField.setEnabled(false);
+                        btnEnviar.setEnabled(false);
+                        statusBar.setText("Execucao concluida");
+                    }
+                });
+            });
         }
-    }
-
-    private String coletarInputs(String codigo) {
-        List<String[]> entradas = new ArrayList<>();
-
-        java.util.Map<String, String> tipoDeVar = new java.util.LinkedHashMap<>();
-
-        Pattern declPattern = Pattern.compile(
-            "\\b(totum|fractum|filum|logicum|char)\\s+([a-z][a-z0-9]*)\\b"
-        );
-        Matcher declMatcher = declPattern.matcher(codigo);
-        while (declMatcher.find()) {
-            tipoDeVar.putIfAbsent(declMatcher.group(2), declMatcher.group(1));
-        }
-
-        Pattern inputPattern = Pattern.compile("\\binputus\\s*\\(\\s*([a-z][a-z0-9]*)\\s*\\)");
-        Matcher inputMatcher = inputPattern.matcher(codigo);
-        while (inputMatcher.find()) {
-            String varName = inputMatcher.group(1);
-            String varTipo = tipoDeVar.getOrDefault(varName, "");
-            entradas.add(new String[]{varName, varTipo});
-        }
-
-        if (entradas.isEmpty()) {
-            return "";
-        }
-
-        StringBuilder stdin = new StringBuilder();
-
-        for (int i = 0; i < entradas.size(); i++) {
-            String varName = entradas.get(i)[0];
-            String varTipo = entradas.get(i)[1];
-
-            String dica = switch (varTipo) {
-                case "totum"   -> "inteiro";
-                case "fractum" -> "decimal";
-                case "logicum" -> "VERUM ou FALSUM";
-                case "filum"   -> "texto";
-                case "char"    -> "caractere";
-                default        -> "valor";
-            };
-
-            String prompt = String.format(
-                "Entrada %d de %d\n\nVariável:  %s  (%s)\nDigite o valor:",
-                i + 1, entradas.size(), varName, dica
-            );
-
-            JPanel panel = new JPanel(new BorderLayout(0, 8));
-            panel.setBackground(EDITOR_BG);
-            panel.setBorder(new EmptyBorder(12, 16, 8, 16));
-
-            JLabel lbl = new JLabel("<html><pre style='font-family:Consolas'>" +
-                prompt.replace("\n", "<br>") + "</pre></html>");
-            lbl.setForeground(TEXT_COLOR);
-            panel.add(lbl, BorderLayout.NORTH);
-
-            JTextField campo = new JTextField(20);
-            campo.setBackground(new Color(33, 37, 43));
-            campo.setForeground(ACCENT_COLOR);
-            campo.setCaretColor(ACCENT_COLOR);
-            campo.setFont(new Font("Consolas", Font.PLAIN, 15));
-            campo.setBorder(BorderFactory.createLineBorder(ACCENT_COLOR));
-            panel.add(campo, BorderLayout.CENTER);
-
-            UIManager.put("OptionPane.background", EDITOR_BG);
-            UIManager.put("Panel.background", EDITOR_BG);
-
-            int result = JOptionPane.showConfirmDialog(
-                this, panel,
-                "inputus — " + varName,
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE
-            );
-
-            if (result != JOptionPane.OK_OPTION) {
-                return null;
-            }
-
-            stdin.append(campo.getText().trim()).append("\n");
-        }
-
-        return stdin.toString();
     }
 
     private void append(JTextPane pane, String msg, Color color) {
@@ -392,7 +338,7 @@ public class IdeMachina extends JFrame {
         } catch (Exception ignored) {}
     }
 
-    // -- Editor --
+    // ================= EDITOR =================
     private void configurarComportamentoInteligenteDoEditor() {
         editorCodigo.addKeyListener(new java.awt.event.KeyAdapter() {
             public void keyTyped(java.awt.event.KeyEvent e) {
@@ -446,7 +392,7 @@ public class IdeMachina extends JFrame {
         p.setBackground(new Color(33,37,43));
         p.setBorder(new EmptyBorder(5,10,5,10));
 
-        statusBar = new JLabel("Pronto");
+        statusBar = new JLabel("✅ Pronto.");
         statusBar.setForeground(TEXT_COLOR);
 
         JLabel right = new JLabel("UTF-8  |  Latim");

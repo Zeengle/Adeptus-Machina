@@ -60,14 +60,6 @@ public class Parser {
       System.out.println("Erro: fim inesperado da entrada");
   }
 
-  private boolean AP(Node pai) {return matchL("(" , pai);   }
-  private boolean FP(Node pai) {return matchL(")" , pai);   }
-  private boolean AC(Node pai) {return matchL("{" , pai);   }
-  private boolean FC(Node pai) {return matchL("}" , pai);   }
-  private boolean PV(Node pai) {return matchL(";", pai);    }
-  private boolean AbCo(Node pai) {return matchL("<<", pai); }
-  private boolean FeCo(Node pai) {return matchL(">>", pai); }
-
   // PROG -> bloco
   private boolean prog(Node pai) {
     Node no = pai.addNode("bloco");
@@ -89,6 +81,8 @@ public class Parser {
       else if (experiri(nodeInstrucao))    pai.addNode(nodeInstrucao);
       else if (declara(nodeInstrucao))     pai.addNode(nodeInstrucao);
       else if (atribuicao(nodeInstrucao))  pai.addNode(nodeInstrucao);
+      else if (rumpere(nodeInstrucao))     pai.addNode(nodeInstrucao);
+      else if (continuare(nodeInstrucao))  pai.addNode(nodeInstrucao);
       else return false;
     }
     return true;
@@ -111,7 +105,7 @@ public class Parser {
       if (!expr(noExpr)) return false;
     }
 
-    if (!PV(no)) return false;
+    if (!matchL(";")) return false;
     pai.addNode(no);
     return true;
   }
@@ -143,7 +137,7 @@ public class Parser {
       return false;
     }
 
-    if (!PV(no)) return false;
+    if (!matchL(";")) return false;
     pai.addNode(no);
     return true;
   }
@@ -153,7 +147,7 @@ public class Parser {
     if (!matchL("scribere")) return false;
     Node no = new Node("scribere");
 
-    if (!AP(no)) return false;
+    if (!matchL("(")) return false;
 
     Node arg = no.addNode("arg");
     if (!texto(arg) && !expr(arg)) return false;
@@ -164,8 +158,8 @@ public class Parser {
       if (!texto(argN) && !expr(argN)) return false;
     }
 
-    if (!FP(no)) return false;
-    if (!PV(no)) return false;
+    if (!matchL(")")) return false;
+    if (!matchL(";")) return false;
     pai.addNode(no);
     return true;
   }
@@ -175,11 +169,11 @@ public class Parser {
     if (!matchL("inputus")) return false;
     Node no = new Node("input");
 
-    if (!AP(no)) return false;
+    if (!matchL("(")) return false;
     Node noC = no.addNode("conteudo");
     if (!texto(noC) && !ID(noC)) return false;
-    if (!FP(no)) return false;
-    if (!PV(no)) return false;
+    if (!matchL(")")) return false;
+    if (!matchL(";")) return false;
     pai.addNode(no);
     return true;
   }
@@ -189,37 +183,35 @@ public class Parser {
     if (!matchL("si")) return false;
     Node no = new Node("si");
 
-    if (!AP(no)) return false;
-
+    if (!matchL("(")) return false;
     Node noCond = no.addNode("condicao");
     if (!condicao(noCond)) return false;
-    if (!FP(no)) return false;
-    if (!AC(no)) return false;
+    if (!matchL(")")) return false;
+    if (!matchL("{")) return false;
     Node noBloco = no.addNode("bloco");
     if (!bloco(noBloco)) return false;
-    if (!FC(no)) return false;
+    if (!matchL("}")) return false;
 
     while (token != null && token.lexema.equals("alitersi")) {
       matchL("alitersi");
       Node noAlt = no.addNode("alitersi");
-      if (!AP(no)) return false;
+      if (!matchL("(")) return false;
       Node noCondA = noAlt.addNode("condicao");
       if (!condicao(noCondA)) return false;
-      if (!FP(no)) return false;
-      if (!AC(no)) return false;
+      if (!matchL(")")) return false;
+      if (!matchL("{")) return false;
       Node noBlocoA = noAlt.addNode("bloco");
       if (!bloco(noBlocoA)) return false;
-      if (!FC(no)) return false;
+      if (!matchL("}")) return false;
     }
 
     if (token != null && token.lexema.equals("nisi")) {
       matchL("nisi");
       Node noNisi = no.addNode("nisi");
-      if (!AC(noNisi)) return false;
-
+      if (!matchL("{")) return false;
       Node noBlocoN = noNisi.addNode("bloco");
       if (!bloco(noBlocoN)) return false;
-      if (!FC(noNisi)) return false;
+      if (!matchL("}")) return false;
     }
 
     pai.addNode(no);
@@ -231,14 +223,14 @@ public class Parser {
     if (!matchL("quantum")) return false;
     Node no = new Node("quantum");
 
-    if (!AP(no)) return false;
+    if (!matchL("(")) return false;
     Node noCond = no.addNode("condicao");
     if (!condicao(noCond) && !logico(noCond)) return false;
-    if (!FP(no)) return false;
-    if (!AC(no)) return false;
+    if (!matchL(")")) return false;
+    if (!matchL("{")) return false;
     Node noBloco = no.addNode("bloco");
     if (!bloco(noBloco)) return false;
-    if (!FC(no)) return false;
+    if (!matchL("}")) return false;
 
     pai.addNode(no);
     return true;
@@ -249,16 +241,16 @@ public class Parser {
     if (!matchL("facere")) return false;
     Node no = new Node("facere");
 
-    if (!AC(no)) return false;
+    if (!matchL("{")) return false;
     Node noBloco = no.addNode("bloco");
     if (!bloco(noBloco)) return false;
-    if (!FC(no)) return false;
+    if (!matchL("}")) return false;
     if (!matchL("quantum")) return false;
-    if (!AP(no)) return false;
+    if (!matchL("(")) return false;
     Node noCond = no.addNode("condicao");
     if (!condicao(noCond)) return false;
-    if (!FP(no)) return false;
-    if (!PV(no)) return false;
+    if (!matchL(")")) return false;
+    if (!matchL(";")) return false;
 
     pai.addNode(no);
     return true;
@@ -269,18 +261,18 @@ public class Parser {
     if (!matchL("per")) return false;
     Node no = new Node("per");
 
-    if (!AP(no)) return false;
+    if (!matchL("(")) return false;
 
     Node noInit = no.addNode("init");
     if (!ID(noInit)) return false;
     if (!matchL("=", noInit)) return false;
     Node noExprI = noInit.addNode("exprInit");
     if (!expr(noExprI)) return false;
-    if (!PV(no)) return false;
+    if (!matchL(";")) return false;
 
     Node noCond = no.addNode("condicao");
     if (!condicao(noCond)) return false;
-    if (!PV(no)) return false;
+    if (!matchL(";")) return false;
 
     Node noInc = no.addNode("incremento");
     if (!ID(noInc)) return false;
@@ -288,11 +280,11 @@ public class Parser {
       matchL(token.lexema, noInc);
     } else return false;
 
-    if (!FP(no)) return false;
-    if (!AC(no)) return false;
+    if (!matchL(")")) return false;
+    if (!matchL("{")) return false;
     Node noBloco = no.addNode("bloco");
     if (!bloco(noBloco)) return false;
-    if (!FC(no)) return false;
+    if (!matchL("}")) return false;
 
     pai.addNode(no);
     return true;
@@ -303,33 +295,54 @@ public class Parser {
     if (!matchL("experiri")) return false;
     Node no = new Node("experiri");
 
-    if (!AC(no)) return false;
+    if (!matchL("{")) return false;
     Node noBT = no.addNode("bloco");
     if (!bloco(noBT)) return false;
-    if (!FC(no)) return false;
+    if (!matchL("}")) return false;
     if (!matchL("capere")) return false;
     Node noCap = no.addNode("capere");
-    if (!AP(no)) return false;
+    if (!matchL("(")) return false;
     if (!ID(noCap)) return false;
-    if (!FP(no) || !AC(no)) return false;
+    if (!matchL(")") || !matchL("{")) return false;
     Node noBC = noCap.addNode("bloco");
     if (!bloco(noBC)) return false;
-    if (!FC(no)) return false;
+    if (!matchL("}")) return false;
 
+    pai.addNode(no);
+    return true;
+  }
+
+  // RUMPERE (break) -> "rumpere" ;
+  private boolean rumpere(Node pai) {
+    if (token == null || !token.lexema.equals("rumpere")) return false;
+    Node no = new Node("rumpere");
+    matchL("rumpere", no);
+    if (!matchL(";")) return false;
+    pai.addNode(no);
+    return true;
+  }
+
+  // CONTINUARE (continue) -> "continuare" ;
+  private boolean continuare(Node pai) {
+    if (token == null || !token.lexema.equals("continuare")) return false;
+    Node no = new Node("continuare");
+    matchL("continuare", no);
+    if (!matchL(";")) return false;
     pai.addNode(no);
     return true;
   }
 
   // COMENTARIO -> << ... >>
   private boolean comentario(Node pai) {
-    if (!AbCo(pai)) return false;
+    if (!matchL("<<")) return false;
     Node no = new Node("comentario");
+    // consome o conteúdo do comentário (pode ser LITCOMENTARIO ou qualquer token até >>)
     while (token != null && !token.lexema.equals(">>")) {
       no.addNode(token.lexema);
       token = getNextToken();
     }
+    if (!matchL(">>")) return false;
     pai.addNode(no);
-    if (!FeCo(pai)) return false;
     return true;
   }
 
@@ -374,9 +387,9 @@ public class Parser {
     if (matchT("LITCHAR",    pai)) return true;
     if (matchT("LITLOGICUM", pai)) return true;
     if (ID(pai))                   return true;
-    if (AP(pai)) {
+    if (matchL("(")) {
       Node noE = pai.addNode("expr");
-      if (!expr(noE) || !FP(pai)) return false;
+      if (!expr(noE) || !matchL(")")) return false;
       return true;
     }
     return false;

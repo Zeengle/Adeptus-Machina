@@ -202,6 +202,9 @@ public class SemanticAnalyzer {
             analisarPer();
         } else if (t.lexema.equals("experiri")) {
             analisarExperiri();
+        } else if (t.lexema.equals("rumpere") || t.lexema.equals("continuare")) {
+            next(); // consome a palavra + ;
+            match(";");
         } else if (t.tipo.equals("id")) {
             analisarAtribuicao();
         } else {
@@ -393,6 +396,7 @@ public class SemanticAnalyzer {
         match("}");
     }
 
+    // do-while: facere { bloco } quantum ( condicao ) ;
     private void analisarFacere() {
         match("facere");
         match("{");

@@ -10,6 +10,7 @@ public class Token {
   private static List<Token> tokens = new ArrayList<>();
 
   public Token(String tipo, String lexema) {
+    // Validação de identificadores inválidos
     if (tipo.equals("id")) {
       if (lexema.length() > 0 && Character.isDigit(lexema.charAt(0))) {
         throw new RuntimeException(
