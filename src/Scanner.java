@@ -1,118 +1,175 @@
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
- 
+
 public class Scanner {
+
+    private static final String[] PALAVRAS_RESERVADAS = {
+        "totum", "fractum", "logicum", "filum", "char",
+        "scribere", "inputus",
+        "si", "alitersi", "nisi",
+        "quantum", "facere",
+        "per",
+        "experiri", "capere",
+        "assidus",
+        "rumpere", "continuare", "reddere"
+    };
+
     public static List<Token> lex(String input) {
         List<Token> tokens = new ArrayList<>();
- 
-        StringBuilder patternBuilder = new StringBuilder();
-        patternBuilder.append("(?<RESERVADA>totum|fractum|logicum|filum|char|scribere|inputus|si|alitersi|nisi|quantum|per|experiri|assidus)");
-        patternBuilder.append("|(?<LITFRACTUM>\\d+\\.\\d+)");
-        patternBuilder.append("|(?<LITTOTUM>\\d+)");
-        patternBuilder.append("|(?<LITLOGICUM>VERUM|FALSUM)");
-        patternBuilder.append("|(?<LITFILUM>\"[^\"]*\")");
-        patternBuilder.append("|(?<LITCHAR>'[a-zA-Z0-9 \\t\\n.?_!]')");
-        patternBuilder.append("|(?<OPCOMP><<|>>|<=|>=|==|!=|\\*\\*|//|\\+\\+|--|\\+=|-=|\\*=|/=|&&|\\|\\|)");
-        patternBuilder.append("|(?<OPSIMPLES>[+*/%=<>(){},;-])");
-        patternBuilder.append("|(?<ID>[a-zA-Z_][a-zA-Z0-9_]*)");
-        patternBuilder.append("|(?<WHITESPACE>\\s+)");
-        patternBuilder.append("|(?<ERROR>.)");
- 
-        Pattern pattern = Pattern.compile(patternBuilder.toString());
-        Matcher matcher = pattern.matcher(input);
- 
-        while (matcher.find()) {
-            if (matcher.group("RESERVADA") != null) {
-                tokens.add(new Token("reservada", matcher.group("RESERVADA")));
-            } else if (matcher.group("LITFRACTUM") != null) {
-                tokens.add(new Token("LITFRACTUM", matcher.group("LITFRACTUM")));
-            } else if (matcher.group("LITTOTUM") != null) {
-                tokens.add(new Token("LITTOTUM", matcher.group("LITTOTUM")));
-            } else if (matcher.group("LITLOGICUM") != null) {
-                tokens.add(new Token("LITLOGICUM", matcher.group("LITLOGICUM")));
-            } else if (matcher.group("LITFILUM") != null) {
-                tokens.add(new Token("LITFILUM", matcher.group("LITFILUM")));
-            } else if (matcher.group("LITCHAR") != null) {
-                tokens.add(new Token("LITCHAR", matcher.group("LITCHAR")));
-            } else if (matcher.group("OPCOMP") != null) {
-                String op = matcher.group("OPCOMP");
-                String tipo = classificarOperador(op);
-                tokens.add(new Token(tipo, op));
-            } else if (matcher.group("OPSIMPLES") != null) {
-                String op = matcher.group("OPSIMPLES");
-                String tipo = classificarOperadorSimples(op);
-                tokens.add(new Token(tipo, op));
-            } else if (matcher.group("ID") != null) {
-                tokens.add(new Token("id", matcher.group("ID")));
-            } else if (matcher.group("WHITESPACE") != null) {
+        int i = 0;
+        int len = input.length();
+
+        while (i < len) {
+            char c = input.charAt(i);
+
+            // espaços em branco
+            if (Character.isWhitespace(c)) { i++; continue; }
+
+            // comentários << ... >>
+            if (c == '<' && i + 1 < len && input.charAt(i + 1) == '<') {
+                tokens.add(new Token("op_acomentario", "<<"));
+                i += 2;
+                StringBuilder comentario = new StringBuilder();
+                while (i < len) {
+                    if (input.charAt(i) == '>' && i + 1 < len && input.charAt(i + 1) == '>') break;
+                    comentario.append(input.charAt(i));
+                    i++;
+                }
+                if (i >= len) throw new RuntimeException("[Erro Léxico] Comentário não fechado (faltou '>>') ");
+                tokens.add(new Token("LITCOMENTARIO", comentario.toString()));
+                tokens.add(new Token("op_fcomentario", ">>"));
+                i += 2;
                 continue;
-            } else if (matcher.group("ERROR") != null) {
-                throw new RuntimeException("[Erro Léxico] Caractere inválido: '" + matcher.group("ERROR") + "'");
             }
+
+            // literal string "..."
+            if (c == '"') {
+                i++;
+                StringBuilder sb = new StringBuilder();
+                sb.append('"');
+                while (i < len && input.charAt(i) != '"') {
+                    if (input.charAt(i) == '\n') throw new RuntimeException("[Erro Léxico] String não fechada na linha.");
+                    sb.append(input.charAt(i));
+                    i++;
+                }
+                if (i >= len) throw new RuntimeException("[Erro Léxico] String não fechada (faltou '\"').");
+                sb.append('"');
+                i++;
+                tokens.add(new Token("LITFILUM", sb.toString()));
+                continue;
+            }
+
+            // literal char '.'
+            if (c == '\'') {
+                i++;
+                if (i >= len) throw new RuntimeException("[Erro Léxico] Char literal incompleto.");
+                char inner = input.charAt(i);
+                i++;
+                if (i >= len || input.charAt(i) != '\'')
+                    throw new RuntimeException("[Erro Léxico] Char literal não fechado (faltou \"'\").");
+                i++;
+                tokens.add(new Token("LITCHAR", "'" + inner + "'"));
+                continue;
+            }
+
+            // números inteiros e decimais
+            if (Character.isDigit(c)) {
+                StringBuilder sb = new StringBuilder();
+                while (i < len && Character.isDigit(input.charAt(i))) { sb.append(input.charAt(i)); i++; }
+                if (i < len && input.charAt(i) == '.' && i + 1 < len && Character.isDigit(input.charAt(i + 1))) {
+                    sb.append('.');
+                    i++;
+                    while (i < len && Character.isDigit(input.charAt(i))) { sb.append(input.charAt(i)); i++; }
+                    if (i < len && (Character.isLetter(input.charAt(i)) || input.charAt(i) == '_'))
+                        throw new RuntimeException("[Erro Léxico] Identificador inválido: '" + sb + input.charAt(i) + "' — identificadores não podem começar com dígito.");
+                    tokens.add(new Token("LITFRACTUM", sb.toString()));
+                } else {
+                    if (i < len && (Character.isLetter(input.charAt(i)) || input.charAt(i) == '_'))
+                        throw new RuntimeException("[Erro Léxico] Identificador inválido: '" + sb + input.charAt(i) + "' — identificadores não podem começar com dígito.");
+                    tokens.add(new Token("LITTOTUM", sb.toString()));
+                }
+                continue;
+            }
+
+            // identificadores e palavras reservadas
+            if (Character.isLetter(c) || c == '_') {
+                StringBuilder sb = new StringBuilder();
+                while (i < len && (Character.isLetterOrDigit(input.charAt(i)) || input.charAt(i) == '_')) {
+                    sb.append(input.charAt(i)); i++;
+                }
+                String palavra = sb.toString();
+                if (palavra.equals("VERUM") || palavra.equals("FALSUM")) {
+                    tokens.add(new Token("LITLOGICUM", palavra));
+                } else if (isPalavraReservada(palavra)) {
+                    tokens.add(new Token("reservada", palavra));
+                } else {
+                    tokens.add(new Token("id", palavra));
+                }
+                continue;
+            }
+
+            // operadores (compostos primeiro, simples depois)
+            Token opToken = lerOperador(input, i);
+            if (opToken != null) {
+                i += opToken.lexema.length();
+                tokens.add(opToken);
+                continue;
+            }
+
+            throw new RuntimeException("[Erro Léxico] Caractere inválido: '" + c + "'");
         }
- 
+
         tokens.add(new Token("EOF", "$"));
         return tokens;
     }
 
-    private static String classificarOperador(String op) {
-        switch (op) {
-            case "<<":
-                return "op_acomentario";
-            case ">>":
-                return "op_fcomentario";
-            case "<=":
-            case ">=":
-            case "==":
-            case "!=":
-                return "op_relacional_composto";
-            case "++":
-            case "--":
-            case "**":
-            case "//":
-                return "op_incremento";
-            case "+=":
-            case "-=":
-            case "*=":
-            case "/=":
-                return "op_atribuicao";
-            case "&&":
-            case "||":
-                return "op_logico";
-            default:
-                return "op";
+    private static boolean isPalavraReservada(String palavra) {
+        for (String r : PALAVRAS_RESERVADAS) {
+            if (r.equals(palavra)) return true;
         }
+        return false;
     }
 
-    private static String classificarOperadorSimples(String op) {
-        switch (op) {
-            case "(":
-                return "op_ap";
-            case ")":
-                return "op_fp";
-            case "{":
-                return "op_ac";
-            case "}":
-                return "op_fc";
-            case ",":
-                return "virgula";
-            case ";":
-                return "fim_linha";
-            case "=":
-                return "op_igualdade";
-            case "<":
-            case ">":
-                return "op_relacional";
-            case "+":
-            case "-":
-            case "*":
-            case "/":
-            case "%":
-                return "op_aritmetico";
-            default:
-                return "op";
+    private static Token lerOperador(String input, int i) {
+        int len = input.length();
+        char c  = input.charAt(i);
+        char c2 = (i + 1 < len) ? input.charAt(i + 1) : 0;
+        String duo = "" + c + c2;
+
+        switch (duo) {
+            case "<=": return new Token("op_relacional_composto", "<=");
+            case ">=": return new Token("op_relacional_composto", ">=");
+            case "==": return new Token("op_relacional_composto", "==");
+            case "!=": return new Token("op_relacional_composto", "!=");
+            case "++": return new Token("op_incremento", "++");
+            case "--": return new Token("op_incremento", "--");
+            case "**": return new Token("op_incremento", "**");
+            case "//": return new Token("op_incremento", "//");
+            case "+=": return new Token("op_atribuicao", "+=");
+            case "-=": return new Token("op_atribuicao", "-=");
+            case "*=": return new Token("op_atribuicao", "*=");
+            case "/=": return new Token("op_atribuicao", "/=");
+            case "&&": return new Token("op_logico", "&&");
+            case "||": return new Token("op_logico", "||");
         }
+
+        switch (c) {
+            case '(': return new Token("op_ap",        "(");
+            case ')': return new Token("op_fp",        ")");
+            case '{': return new Token("op_ac",        "{");
+            case '}': return new Token("op_fc",        "}");
+            case ',': return new Token("virgula",       ",");
+            case ';': return new Token("fim_linha",     ";");
+            case '=': return new Token("op_igualdade",  "=");
+            case '<': return new Token("op_relacional", "<");
+            case '>': return new Token("op_relacional", ">");
+            case '+': return new Token("op_aritmetico", "+");
+            case '-': return new Token("op_aritmetico", "-");
+            case '*': return new Token("op_aritmetico", "*");
+            case '/': return new Token("op_aritmetico", "/");
+            case '%': return new Token("op_aritmetico", "%");
+        }
+
+        return null;
     }
 }
