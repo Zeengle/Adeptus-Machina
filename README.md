@@ -45,7 +45,7 @@ A linguagem combina terminologia clássica com paradigmas modernos de programaç
 | constant           | `assidus`       |
 | if                 | `si`            |
 | else               | `nisi`          |
-| elif               | `alitersi`      |
+| elif               | `nisi si`       |
 | while              | `quantum`       |
 | do                 | `facere`        |
 | for                | `per`           |
@@ -117,7 +117,7 @@ condicao_logica ➜ condicao_relacional (op_logicos condicao_relacional)*
 condicao_relacional ➜ expr op_relacional expr
 
 if ➜ 'si' AP condicao FP AC bloco 
-      ('alitersi' AP condicao FP AC bloco FC)* 
+      ('nisi si' AP condicao FP AC bloco FC)* 
       ('nisi' AC bloco FC)?
 
 while ➜ 'quantum' AP (condicao | logicum) FP AC bloco FC
